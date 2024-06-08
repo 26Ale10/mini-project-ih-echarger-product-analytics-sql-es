@@ -146,3 +146,15 @@ T2 AS( SELECT *, RANK() OVER(ORDER BY TIME DESC) as Ranking FROM T1
 WHERE Ranking < 4;
 
 -- Question 14. Average time between sessions for each charger for each month (consider the month of start_time)
+-- Solution:
+
+WITH T1 AS 
+(
+SELECT id,charger_id, strftime('%m',start_time) as month, round(((strftime('%s',end_time) - strftime('%s',start_time))/3600),2) as Sesion_time -- en minutos
+FROM sessions
+GROUP BY id, charger_id,month)
+SELECT charger_id, month, round(avg(Sesion_time)) as Avg_sesion_time 
+FROM T1
+GROUP BY charger_id, month
+;
+
