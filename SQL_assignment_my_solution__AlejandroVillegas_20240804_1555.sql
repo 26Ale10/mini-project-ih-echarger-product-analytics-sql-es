@@ -43,7 +43,7 @@ JOIN chargers AS T2 ON T1.charger_id = T2.id
 -- Question 5: Average session time per charger
 -- Solution 5: en horas
 WITH T1 AS (
-SELECT charger_id, round(avg((strftime('%s',end_time) - strftime('%s',start_time))/3600),2) as Avg_sesion_time 
+SELECT charger_id, round(avg((strftime('%s',end_time) - strftime('%s',start_time))/60),2) as Avg_sesion_time 
 FROM sessions
 GROUP BY charger_id)
 SELECT T2.label AS Charger, T1.Avg_sesion_time FROM T1
@@ -66,7 +66,7 @@ HAVING COUNT(DISTINCT charger_id) > 1);
 -- Solution 7:
 
 WITH T1 AS (
-SELECT charger_id, ((strftime('%s',end_time) - strftime('%s',start_time))/3600) as Sesion_time, rank() over(ORDER BY ((strftime('%s',end_time) - strftime('%s',start_time))/3600) DESC) AS ranking
+SELECT charger_id, ((strftime('%s',end_time) - strftime('%s',start_time))/60) as Sesion_time, rank() over(ORDER BY ((strftime('%s',end_time) - strftime('%s',start_time))/60) DESC) AS ranking
 FROM sessions
 GROUP BY charger_id)
 SELECT T2.label AS Charger, Sesion_time FROM T1
@@ -85,6 +85,7 @@ GROUP BY Type_Charger;
 
 
 -- Question 9: Top 3 users with more chargers being used
+
 WITH ranking_users AS (
 SELECT user_id ,COUNT(DISTINCT charger_id) AS Total_chargers_used,rank() over(ORDER BY COUNT(DISTINCT charger_id) DESC) AS Ranking 
 FROM sessions
@@ -140,17 +141,17 @@ WHERE Ranking < 4
 -- Question 13: Top 3 users with longest sessions per month (consider the month of start_time)
 -- Solution 13: 
 
-WITH T1 AS (SELECT user_id, strftime('%m',start_time) as month, round((strftime('%s',end_time) - strftime('%s',start_time))/3600) AS TIME FROM sessions), 
+WITH T1 AS (SELECT user_id, strftime('%m',start_time) as month, round((strftime('%s',end_time) - strftime('%s',start_time))/60) AS TIME FROM sessions), 
 T2 AS( SELECT *, RANK() OVER(ORDER BY TIME DESC) as Ranking FROM T1
 ) SELECT * FROM T2
 WHERE Ranking < 4;
 
 -- Question 14. Average time between sessions for each charger for each month (consider the month of start_time)
--- Solution:
+-- Solution A:
 
 WITH T1 AS 
 (
-SELECT id,charger_id, strftime('%m',start_time) as month, round(((strftime('%s',end_time) - strftime('%s',start_time))/3600),2) as Sesion_time -- en minutos
+SELECT id,charger_id, strftime('%m',start_time) as month, round(((strftime('%s',end_time) - strftime('%s',start_time))/60),2) as Sesion_time -- en minutos
 FROM sessions
 GROUP BY id, charger_id,month)
 SELECT charger_id, month, round(avg(Sesion_time)) as Avg_sesion_time 
@@ -158,3 +159,12 @@ FROM T1
 GROUP BY charger_id, month
 ;
 
+-- Solution B:
+
+WITH PREVIO AS (
+SELECT id, user_id ,charger_id, strftime('%m',start_time) as month, start_time,end_time , lag(end_time) over(partition by user_id,charger_id order by user_id, charger_id,start_time) as previo_cierre
+FROM sessions), T1 AS (SELECT *, avg(round((abs(strftime('%s',start_time) - strftime('%s',previo_cierre))/60),2)) as Sesion_time -- en minutos
+FROM PREVIO
+GROUP BY charger_id) SELECT charger_id,Sesion_time FROM T1
+ORDER BY Sesion_time DESC
+;
